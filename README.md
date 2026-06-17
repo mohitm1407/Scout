@@ -1,2 +1,2 @@
 # Scout
-Agent Research Agent
+Research Agent
