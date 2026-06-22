@@ -43,6 +43,9 @@ class WebScrapeAgent(Agent):
         for keyword in self.response.keywords:
             search_responses_text = web_search(keyword)
             search_responses = json.loads(search_responses_text)
+            if search_responses.get("organic") is None:
+                print(keyword + "Is None")
+                continue
             for res in search_responses.get("organic"):
                 reference = Reference(
                     reference_title=res.get("title"),
