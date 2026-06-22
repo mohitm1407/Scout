@@ -1,23 +1,27 @@
 from re import search
 from langchain.tools import tool
 import requests
+import os
 
 
-@tool
-def web_search(search_query: str, page: int) -> list[dict]:
+def web_search(search_query: str) -> list[dict]:
     """
     Use Google search to find articles related to a spexcific topic .
 
     Args:
         search_query : the query to be used for search
-        page : each page in the search can have upto 10 responses
     """
 
     url = "https://google.serper.dev/search"
+    api_key = os.getenv("SERPER_API_KEY")
+
+    if not api_key:
+        raise ValueError("SERPER_API_KEY environment variable is not set")
 
     payload = {"q": f"{search_query}"}
-    headers = {"X-API-KEY": "a2d84b54866405455cf19865203ab8ca43403c7f", "Content-Type": "application/json"}
+    headers = {"X-API-KEY": f"{api_key}", "Content-Type": "application/json"}
 
     response = requests.request("POST", url, headers=headers, json=payload)
 
-    return response.text
+    search_responses = response.text
+    return search_responses
