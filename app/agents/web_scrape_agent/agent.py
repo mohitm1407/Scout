@@ -3,15 +3,9 @@ from pydantic import BaseModel
 import json
 import asyncio
 
-from ..base import Agent
+from ..base import Agent, Reference
 from .tools import web_search
 from .prompts import SYSTEM_PROMPT
-
-
-class Reference(BaseModel):
-    reference_url: str
-    reference_title: str
-    reference_description: str
 
 
 class WebScrapeResponse(BaseModel):
@@ -22,7 +16,6 @@ class WebScrapeAgent(Agent):
 
     def __init__(self, llm, tools: list) -> None:
         super().__init__(llm, tools)
-        self.response = None
 
     async def invokee(self, user_search_query: str):
         graph = self.build(WebScrapeResponse)
@@ -36,11 +29,12 @@ class WebScrapeAgent(Agent):
         sr = results.get("structured_response")
         # self.validate(sr)
         print(type(sr))
-        self.response = sr
+        self.llm_response = sr
 
     def post_process(self) -> list[Reference]:
         references: list[Reference] = []
-        for keyword in self.response.keywords:
+        links = []
+        for keyword in self.llm_response.keywords:
             search_responses_text = web_search(keyword)
             search_responses = json.loads(search_responses_text)
             if search_responses.get("organic") is None:
@@ -52,7 +46,9 @@ class WebScrapeAgent(Agent):
                     reference_url=res.get("link"),
                     reference_description=res.get("snippet"),
                 )
-                references.append(reference)
+                if reference.reference_url not in links:
+                    references.append(reference)
+                    links.append(reference.reference_url)
 
         return references
 
@@ -105,6 +101,14 @@ async def main():
     references = graph.post_process()
     print(type(response))
     print(len(references))
+
+    from ..ranking_agent.agent import RankingAgent
+
+    ranker = RankingAgent(llm, [], references)
+    ranked_results = await ranker.invoke("How is Redis better than postgres")
+    print(len(ranked_results))
+    for res in ranked_results:
+        print(res.reference_title, res.reference_url)
 
 
 if __name__ == "__main__":
