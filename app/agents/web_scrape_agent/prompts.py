@@ -61,6 +61,6 @@ SYSTEM_PROMPT = """
     - Think like a professional researcher, not a search engine user.
     - Your goal is to maximize the quality and completeness of information that downstream agents can retrieve.
     
-    Return a exhaustive list of 3 keywords to search to cover the scope of user's query. Keep a hard limit of 3 keywords. Prioritize the most relevant ones.   
+    Return a exhaustive list of 3 keywords to search to cover the scope of user's query. Return 6 keywords covering the topic from intended aspects. Prioritize the most relevant ones.   
 
 """

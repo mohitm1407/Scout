@@ -30,6 +30,7 @@ class WebScrapeAgent(Agent):
         # self.validate(sr)
         print(type(sr))
         self.llm_response = sr
+        return sr
 
     def post_process(self) -> list[Reference]:
         references: list[Reference] = []
@@ -97,18 +98,56 @@ graph = WebScrapeAgent(llm=llm, tools=[])
 
 
 async def main():
-    response = await graph.invokee("How is Redis better than postgres")
-    references = graph.post_process()
-    print(type(response))
-    print(len(references))
+    from ..telemetry_test import get_trace
 
-    from ..ranking_agent.agent import RankingAgent
+    tracer = get_trace()
 
-    ranker = RankingAgent(llm, [], references)
-    ranked_results = await ranker.invoke("How is Redis better than postgres")
-    print(len(ranked_results))
-    for res in ranked_results:
-        print(res.reference_title, res.reference_url)
+    with tracer.start_as_current_span("web_scrape"):
+        user_query = "How is Redis better than postgres"
+        response = await graph.invokee(
+            user_query,
+        )
+        references = graph.post_process()
+        print(response)
+        print(len(references))
+
+    with tracer.start_as_current_span("ranking_agent"):
+        from ..ranking_agent.agent import RankingAgent
+
+        ranker = RankingAgent(llm, [], references)
+        ranked_results = await ranker.invoke(user_query)
+        print(len(ranked_results))
+        for res in ranked_results:
+            print(
+                res.reference_title,
+                res.reference_url,
+            )
+
+    with tracer.start_as_current_span("extraction_agent"):
+        from ..extraction_agent import ExtractionAgent, extract_content, ExtractionOutput
+
+        extractor = ExtractionAgent(llm, [extract_content])
+        import asyncio
+
+        async def extract_result(result) -> ExtractionOutput:
+            try:
+                res = await extractor.invokee(
+                    result,
+                    user_query,
+                )
+                return res
+            except Exception as e:
+                print(f"Error processing result: {e}")
+                return None
+
+        tasks = [extract_result(result) for result in ranked_results]
+
+        results = await asyncio.gather(*tasks)
+        summaies = []
+        print(len(results))
+        for res in results:
+            if res:
+                summaies.append(res.content_summary)
 
 
 if __name__ == "__main__":

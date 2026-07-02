@@ -9,6 +9,7 @@ class Reference(BaseModel):
     reference_url: str
     reference_title: str
     reference_description: str
+    reference_summary: str = ""
 
 
 class Agent(ABC):
